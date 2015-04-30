@@ -14,8 +14,6 @@ tbl = Create Table with column names: "tbl", 0, "start end"
 Create Strings as file list: "small_tg_list", "'small_tg_dir$'/*.TextGrid"
 tg_list = selected("Strings")
 
-prevrow_start = -1
-prevrow_end = -1
 
 n_tgs = Get number of strings
 for tg_i from 1 to n_tgs
@@ -33,23 +31,54 @@ for tg_i from 1 to n_tgs
 		if int_label$ == "creak"
 			intervalstart = Get start point: 1, int_i
 			intervalend = Get end point: 1, int_i
+			intervalstart = offset_ms / 1000 + intervalstart
+			intervalend = offset_ms / 1000 + intervalend
             
-            if intervalstart > prevrow_end
-                select tbl
-                Append row
-                nrow = Get number of rows
-                Set numeric value: nrow, "start", intervalstart
-                Set numeric value: nrow, "end", intervalend
-                
-                prevrow_start = intervalstart
-                prevrow_end = intervalend
-            else
-                select tbl
-                nrow = Get number of rows
-                Set numeric value: nrow, "end", intervalend
-                prevrow_end = intervalend
-            endif	
+		# check start and end against tbl
+		# is start in another interval?
+		select tbl
+		nrows = Get number of rows
+		result = -1
+		for row_i from 1 to nrows
+			start = Get value: row_i, "start"
+			end = Get value: row_i, "end"
+			if start < intervalstart and end > intervalstart
+				result = row_i
+			endif
+		endfor
+		if result <> -1
+			row_end = Get value: result, "end"
+			if intervalend > row_end
+				Set numeric value: nrow, "end", intervalend
+			endif
+		else
+			# is end in another interval
+			select tbl
+			nrows = Get number of rows
+			result = -1
+			for row_i from 1 to nrows
+				start = Get value: row_i, "start"
+				end = Get value: row_i, "end"
+				if start < intervalend and end > intervalend
+					result = row_i
+				endif
+			endfor
+			if result <> -1
+				row_start = Get value: result, "start"
+				if intervalstart < row_start
+					Set numeric value: nrow, "start", intervalstart
+				endif
+			else
+				# normal execution
+				select tbl
+				Append row
+				nrow = Get number of rows
+				Set numeric value: nrow, "start", intervalstart
+				Set numeric value: nrow, "end", intervalend
+			endif
 		endif
+
+ 		endif
 	endfor
 
 	select small_tg

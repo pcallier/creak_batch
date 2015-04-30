@@ -24,13 +24,14 @@ SCRIPT_DIR=`cd $(dirname "${0}"); pwd`
 errorlog="${SCRIPT_DIR}/errors.log"
 echo "" > "$errorlog"
 
+
 # loop over folders in data directory
 for wav_file in "$AUDIO_DIR"/*.wav ; do
     file_code=$(echo $(basename $wav_file) | sed s/\.wav$//g)
     trs_file="$TRS_DIR"/${file_code}.txt
     if [ -f "$trs_file" ]; then
         result_file="$RESULTS_DIR"/${file_code}.txt
-    	if [ ! -f "result_file" ]; then
+    	if [ ! -f "$result_file" ]; then
            # clear out working directory
             find "${WORKING_DIR}" -type f -name "*.wav" -exec rm -rf {} \;
             find "${WORKING_DIR}" -type f -name "*.TextGrid" -exec rm -rf {} \;
@@ -38,8 +39,8 @@ for wav_file in "$AUDIO_DIR"/*.wav ; do
 
 		echo "Beginning work on ${file_code}"
 
-            # split audio
-            sed 1d "$trs_file" | awk -F $'\t' '{ print $1 "\t" $3 "\t" $4 }' | while IFS=$'\t' read spkr start_sec end_sec ; do
+            # split audio (head -n 100 "$trs_file" |)
+            sed 1d | awk -F $'\t' '{ print $1 "\t" $3 "\t" $4 }' | while IFS=$'\t' read spkr start_sec end_sec ; do
 		output_dur=$(echo "$end_sec - $start_sec" | bc)
 		printf -v output_dur '%03f' "$output_dur"
                 slice_name=${spkr}_$(python -c 'import math; print "{:d}".format(int(math.floor('$(echo "$start_sec" | bc )'*1000)))')
@@ -57,14 +58,11 @@ for wav_file in "$AUDIO_DIR"/*.wav ; do
                 continue
             fi
 
-            # delete wav files
-            find "${WORKING_DIR}" -type f -name "*.wav" -exec rm -rf {} \;
-            find "${WORKING_DIR}" -type f -name "*.TextGrid" -exec rm -rf {} \;
-            
             # compile results into a single table (with praat)
-            praat "${SCRIPT_DIR}/creak_grids_to_tbl.praat ${WORKING_DIR}" > "${WORKING_DIR}/creak_results.txt"
+            praat "${SCRIPT_DIR}/creak_grids_to_tbl.praat" "${WORKING_DIR}" > "${WORKING_DIR}/creak_results.txt"
             mv "${WORKING_DIR}/creak_results.txt" "${result_file}"
-            exit  
+            exit             
+ 
 	fi
 	fi
 done
