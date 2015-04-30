@@ -40,7 +40,7 @@ for wav_file in "$AUDIO_DIR"/*.wav ; do
 		echo "Beginning work on ${file_code}"
 
             # split audio (head -n 100 "$trs_file" |)
-            sed 1d | awk -F $'\t' '{ print $1 "\t" $3 "\t" $4 }' | while IFS=$'\t' read spkr start_sec end_sec ; do
+            sed 1d "$trs_file" | awk -F $'\t' '{ print $1 "\t" $3 "\t" $4 }' | while IFS=$'\t' read spkr start_sec end_sec ; do
 		output_dur=$(echo "$end_sec - $start_sec" | bc)
 		printf -v output_dur '%03f' "$output_dur"
                 slice_name=${spkr}_$(python -c 'import math; print "{:d}".format(int(math.floor('$(echo "$start_sec" | bc )'*1000)))')
@@ -61,7 +61,7 @@ for wav_file in "$AUDIO_DIR"/*.wav ; do
             # compile results into a single table (with praat)
             praat "${SCRIPT_DIR}/creak_grids_to_tbl.praat" "${WORKING_DIR}" > "${WORKING_DIR}/creak_results.txt"
             mv "${WORKING_DIR}/creak_results.txt" "${result_file}"
-            exit             
+            echo "Creak detection complete. Results at ${result_file}"             
  
 	fi
 	fi
