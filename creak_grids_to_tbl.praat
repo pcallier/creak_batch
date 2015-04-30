@@ -58,6 +58,5 @@ endfor
 select tg_list
 Remove
 
-
 select tbl
 List: 0

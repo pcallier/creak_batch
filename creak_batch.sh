@@ -16,31 +16,40 @@
 # Only one instance of this should run at a time, so watch out.
 # praat must be on the path
 
-AUDIO_DIR="audio"
-WORKING_DIR=""
-TRS_DIR="annotations"
-RESULTS_DIR=""
+AUDIO_DIR="/media/sf_corpora/living_room/data/audio"
+WORKING_DIR="${HOME}/tmp"
+TRS_DIR="/media/sf_corpora/living_room/data/annotations"
+RESULTS_DIR="/media/sf_creak_results"
 SCRIPT_DIR=`cd $(dirname "${0}"); pwd`
 errorlog="${SCRIPT_DIR}/errors.log"
+echo "" > "$errorlog"
 
 # loop over folders in data directory
 for wav_file in "$AUDIO_DIR"/*.wav ; do
-    file_code = $(echo $(basename $wav_file) | sed s/\.wav$//g)
-    trs_file = "$TRS_DIR"/${file_code}.txt
+    file_code=$(echo $(basename $wav_file) | sed s/\.wav$//g)
+    trs_file="$TRS_DIR"/${file_code}.txt
     if [ -f "$trs_file" ]; then
-        result_file = "$RESULTS_DIR"/${file_code}.txt
+        result_file="$RESULTS_DIR"/${file_code}.txt
     	if [ ! -f "result_file" ]; then
-    		echo "Beginning work on ${file_code}"
+           # clear out working directory
+            find "${WORKING_DIR}" -type f -name "*.wav" -exec rm -rf {} \;
+            find "${WORKING_DIR}" -type f -name "*.TextGrid" -exec rm -rf {} \;
+            rm -f "${WORKING_DIR}/creak_results.txt"
+
+		echo "Beginning work on ${file_code}"
 
             # split audio
             sed 1d "$trs_file" | awk -F $'\t' '{ print $1 "\t" $3 "\t" $4 }' | while IFS=$'\t' read spkr start_sec end_sec ; do
-                output_dur = $(echo "$end_sec - $start_sec" | bc)
-                slice_name = $spkr_$(python -c 'import math; print math.floor('$(echo "$start_sec" | bc )'*1000)')
-                ffmpeg -ss $start_sec -i "$wav_file" -t $output_dur "${WORKING_DIR}${slice_name}.wav"
+		output_dur=$(echo "$end_sec - $start_sec" | bc)
+		printf -v output_dur '%03f' "$output_dur"
+                slice_name=${spkr}_$(python -c 'import math; print "{:d}".format(int(math.floor('$(echo "$start_sec" | bc )'*1000)))')
+		#echo "${WORKING_DIR}/${slice_name}.wav"
+                ffmpeg -nostdin -loglevel error -ss $start_sec -i "$wav_file" -t $output_dur -ar 16000 "${WORKING_DIR}/${slice_name}.wav"
             done
 
+	    echo "Audio divided. Beginning creak detection on ${file_code}"
             # do creak detection
-			matlab -r "cd ${SCRIPT_DIR}/covarep; startup; cd ${SCRIPT_DIR}; do_creak_detection('${WORKING_DIR}'); exit" >> "$errorlog"
+            matlab -nodisplay -nosplash -r "cd ${SCRIPT_DIR}/covarep; startup; cd ${SCRIPT_DIR}; do_creak_detection('${WORKING_DIR}'); exit" >> "$errorlog"
             if [ "$?" -ne 0 ]; then
                 echo "Matlab had bad exit in ${file_code}" >> "$errorlog"
                 find "${WORKING_DIR}" -type f -name "*.wav" -exec rm -rf {} \;
@@ -53,13 +62,9 @@ for wav_file in "$AUDIO_DIR"/*.wav ; do
             find "${WORKING_DIR}" -type f -name "*.TextGrid" -exec rm -rf {} \;
             
             # compile results into a single table (with praat)
-            praat "${SCRIPT_DIR}/creak_grids_to_tbl.praat" "${WORKING_DIR}" > "${WORKING_DIR}/creak_results.txt"
-            mv "${WORKING_DIR}/creak_results.txt" "${result_file}
-            
-            # clear out working directory
-            find "${WORKING_DIR}" -type f -name "*.wav" -exec rm -rf {} \;
-            find "${WORKING_DIR}" -type f -name "*.TextGrid" -exec rm -rf {} \;
-            rm -f "${WORKING_DIR}/creak_results.txt"
-		fi
+            praat "${SCRIPT_DIR}/creak_grids_to_tbl.praat ${WORKING_DIR}" > "${WORKING_DIR}/creak_results.txt"
+            mv "${WORKING_DIR}/creak_results.txt" "${result_file}"
+            exit  
+	fi
 	fi
 done
