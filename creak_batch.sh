@@ -47,6 +47,7 @@ for wav_file in "$AUDIO_DIR"/*.wav ; do
 		#echo "${WORKING_DIR}/${slice_name}.wav"
                 ffmpeg -nostdin -loglevel error -ss $start_sec -i "$wav_file" -t $output_dur -ar 16000 "${WORKING_DIR}/${slice_name}.wav"
             done
+	    echo "$(ls -l ${WORKING_DIR} | wc -l) files in working directory"
 
 	    echo "Audio divided. Beginning creak detection on ${file_code}"
             # do creak detection
@@ -64,5 +65,5 @@ for wav_file in "$AUDIO_DIR"/*.wav ; do
             echo "Creak detection complete. Results at ${result_file}"             
  
 	fi
-	fi
+    fi
 done
